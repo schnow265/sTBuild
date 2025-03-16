@@ -20,7 +20,13 @@ function New-BuildTemplate {
         }
         
         $buildScriptPath = Read-Host "Enter build script path (relative to scripts folder)"
-        $buildFunction = Read-Host "Enter build function name"
+        
+        # For build function name, automatically format it according to the new schema
+        $suggestedFunctionName = "sTBuild-$Name"
+        $buildFunction = Read-Host "Enter build function name (suggested: $suggestedFunctionName)"
+        if ([string]::IsNullOrWhiteSpace($buildFunction)) {
+            $buildFunction = $suggestedFunctionName
+        }
         
         $defaultConfig = @{}
         
@@ -98,7 +104,7 @@ function New-BuildTemplate {
     else {
         # Default values when not interactive
         $buildScriptPath = "buildscripts\$Name.ps1"
-        $buildFunction = "Build-$Name"
+        $buildFunction = "sTBuild-$Name"
         $defaultConfig = @{}
         $schema = @{}
         $executablePatterns = @("*.exe", "*.cmd", "*.bat")

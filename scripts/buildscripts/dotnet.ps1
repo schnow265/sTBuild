@@ -1,3 +1,17 @@
+# Platform detection
+$script:IsWindows = $PSVersionTable.PSEdition -eq "Desktop" -or 
+                   ($PSVersionTable.PSVersion.Major -ge 6 -and $IsWindows)
+$script:IsLinux = $PSVersionTable.PSVersion.Major -ge 6 -and $IsLinux
+$script:IsMacOS = $PSVersionTable.PSVersion.Major -ge 6 -and $IsMacOS
+
+$script:HomeDir = if ($script:IsWindows) { $env:USERPROFILE } else { $env:HOME }
+$script:PathSeparator = if ($script:IsWindows) { "\" } else { "/" }
+$script:NumProcessors = if ($script:IsWindows) { 
+    $env:NUMBER_OF_PROCESSORS 
+} else { 
+    $(if (Get-Command nproc -ErrorAction SilentlyContinue) { nproc } else { 4 }) 
+}
+
 function _Get-DotNetBuildCommand {
     [CmdletBinding()]
     param(
@@ -37,7 +51,9 @@ function _Get-DotNetBuildCommand {
     $buildCommand = @()
     
     if ($BuildRuntime) {
-        $buildCommand += "./build.cmd"
+        # Use cross-platform build script command
+        $buildCmd = if ($script:IsWindows) { "./build.cmd" } else { "./build.sh" }
+        $buildCommand += $buildCmd
         $buildCommand += "-c $Configuration"
         $buildCommand += "-arch $Architecture"
         $buildCommand += "-os $OS"
@@ -133,12 +149,12 @@ function _Get-DotNetBuildCommand {
     return $buildCommand -join ' '
 }
 
-function Build-DotNet {
+function sTBuild-DotNet {
     [CmdletBinding()]
     param (
         # Basic configuration
         [Parameter(HelpMessage="Directory to install .NET")]
-        [string]$InstallDir = "$env:USERPROFILE\sTBuild\dotnet\temp",
+        [string]$InstallDir = $(Join-Path $script:HomeDir "sTBuild/dotnet/temp"),
         
         [Parameter(HelpMessage="URL of the .NET runtime Git repository")]
         [string]$RuntimeRepoUrl = "https://github.com/dotnet/runtime.git",
@@ -185,7 +201,7 @@ function Build-DotNet {
         
         # Build options
         [Parameter(HelpMessage="Number of parallel build jobs")]
-        [int]$ParallelBuildJobs = $env:NUMBER_OF_PROCESSORS,
+        [int]$ParallelBuildJobs = $script:NumProcessors,
         
         [Parameter(HelpMessage="Skip running tests")]
         [switch]$SkipTests = $false,
@@ -339,10 +355,15 @@ function Build-DotNet {
             New-Item -ItemType Directory -Path $InstallDir -Force
         }
         
+        # Platform-specific path handling
+        $artifactsDir = if ($BuildRuntime) {
+            Join-Path -Path "runtime" -ChildPath "artifacts/bin/coreclr/$OS.$Architecture.$Configuration"
+        } else {
+            Join-Path -Path "sdk" -ChildPath "artifacts/bin/runtime/$OS-$Architecture/$Configuration"
+        }
+        
         # Copy build artifacts to install directory
         if ($BuildRuntime) {
-            $artifactsDir = "runtime\artifacts\bin\coreclr\$OS.$Architecture.$Configuration"
-            
             if (Test-Path $artifactsDir) {
                 Write-Host -ForegroundColor Cyan "Copying build artifacts to install directory..."
                 Copy-Item -Path "$artifactsDir\*" -Destination $InstallDir -Recurse -Force
@@ -352,8 +373,6 @@ function Build-DotNet {
         }
         
         if ($BuildSdk) {
-            $artifactsDir = "sdk\artifacts\bin\runtime\$OS-$Architecture\$Configuration"
-            
             if (Test-Path $artifactsDir) {
                 Write-Host -ForegroundColor Cyan "Copying SDK artifacts to install directory..."
                 Copy-Item -Path "$artifactsDir\*" -Destination $InstallDir -Recurse -Force
@@ -372,3 +391,6 @@ function Build-DotNet {
         Write-Host -ForegroundColor Yellow "Build already in progress (lock file exists). Skipping."
     }
 }
+
+# Create an alias for backward compatibility
+New-Alias -Name Build-DotNet -Value sTBuild-DotNet

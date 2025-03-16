@@ -1,11 +1,18 @@
 #Requires -Version 5.1
 
+# Platform detection
+$script:IsWindows = $PSVersionTable.PSEdition -eq "Desktop" -or 
+                   ($PSVersionTable.PSVersion.Major -ge 6 -and $IsWindows)
+$script:IsLinux = $PSVersionTable.PSVersion.Major -ge 6 -and $IsLinux
+$script:IsMacOS = $PSVersionTable.PSVersion.Major -ge 6 -and $IsMacOS
+
 # Constants
-$script:BuildSystemRoot = "$env:USERPROFILE\sTBuild"
-$script:BuildModulesPath = "$script:BuildSystemRoot\modules"
-$script:BuildTemplatesPath = "$script:BuildSystemRoot\templates"
-$script:BuildBinPath = "$script:BuildSystemRoot\bin"
-$script:DatabasePath = "$script:BuildSystemRoot\builds.db"
+$script:HomeDir = if ($script:IsWindows) { $env:USERPROFILE } else { $env:HOME }
+$script:BuildSystemRoot = Join-Path $script:HomeDir "sTBuild"
+$script:BuildModulesPath = Join-Path $script:BuildSystemRoot "modules"
+$script:BuildTemplatesPath = Join-Path $script:BuildSystemRoot "templates"
+$script:BuildBinPath = Join-Path $script:BuildSystemRoot "bin"
+$script:DatabasePath = Join-Path $script:BuildSystemRoot "builds.db"
 
 # Initialize the build environment
 function Initialize-BuildEnvironment {
@@ -42,14 +49,14 @@ function CreateDefaultTemplates {
     
     if (!(Test-Path $llvmTemplatePath)) {
         $llvmTemplate = @{
-            name = "llvm"
-            description = "LLVM Compiler Infrastructure"
-            repository = "https://github.com/llvm/llvm-project.git"
-            buildScript = "buildscripts\llvm.ps1"
+            name          = "llvm"
+            description   = "LLVM Compiler Infrastructure"
+            repository    = "https://github.com/llvm/llvm-project.git"
+            buildScript   = "buildscripts\llvm.ps1"
             buildFunction = "Build-LLVM"
             defaultConfiguration = @{
                 BuildType = "Release"
-                LLvmProjects = "clang;lld;clang-tools-extra"
+                LLvmProjects = "clang; lld; clang-tools-extra"
                 llvmTargets = "X86"
                 EnableLLD = $false
                 BuildTests = $false
@@ -64,7 +71,7 @@ function CreateDefaultTemplates {
                 }
                 LLvmProjects = @{
                     type = "string"
-                    default = "clang;lld"
+                    default = "clang; lld"
                     description = "LLVM projects to build"
                 }
                 # More configuration options can be added here
@@ -294,8 +301,6 @@ function New-SymbolicLink {
         [string]$Type = 'File'
     )
 
-    $linkType = if ($Type -eq 'Directory') { 'D' } else { '' }
-    
     # Remove existing link if it exists
     if (Test-Path -Path $Path) {
         Remove-Item -Path $Path -Force
@@ -306,13 +311,34 @@ function New-SymbolicLink {
     if (!(Test-Path -Path $parentDir)) {
         New-Item -ItemType Directory -Path $parentDir -Force | Out-Null
     }
-    
-    # Create the symbolic link
-    $output = cmd /c "mklink /$linkType `"$Path`" `"$Target`"" 2>&1
-    
-    if ($LASTEXITCODE -ne 0) {
-        Write-Error "Failed to create symbolic link: $output"
-        return $false
+
+    # Cross-platform symlink creation
+    if ($script:IsWindows) {
+        # Windows symlink creation using mklink
+        $linkType = if ($Type -eq 'Directory') { 'D' } else { '' }
+        $output = cmd /c "mklink /$linkType `"$Path`" `"$Target`"" 2>&1
+        
+        if ($LASTEXITCODE -ne 0) {
+            Write-Error "Failed to create symbolic link: $output"
+            return $false
+        }
+    }
+    else {
+        # Linux/macOS symlink creation using New-Item (PowerShell 6+)
+        try {
+            $itemType = if ($Type -eq 'Directory') { 'SymbolicLink' } else { 'SymbolicLink' }
+            New-Item -ItemType $itemType -Path $Path -Target $Target -Force | Out-Null
+        }
+        catch {
+            # Fallback to using ln -s
+            $ln = if ($IsMacOS) { "/bin/ln" } else { "/usr/bin/ln" }
+            $output = & $ln -s "$Target" "$Path" 2>&1
+            
+            if ($LASTEXITCODE -ne 0) {
+                Write-Error "Failed to create symbolic link: $output"
+                return $false
+            }
+        }
     }
     
     return $true
@@ -435,6 +461,78 @@ function Register-BuildTemplate {
     ConvertTo-Json $template -Depth 10 | Set-Content $templatePath
     
     Write-Host "Registered build template for $Name at $templatePath"
+}
+
+function Get-BuildTemplates {
+    [CmdletBinding()]
+    param (
+        [Parameter()]
+        [switch]$IncludeBuildCommand
+    )
+    
+    # Ensure templates directory exists
+    if (!(Test-Path $script:BuildTemplatesPath)) {
+        Write-Warning "Templates directory not found at $script:BuildTemplatesPath"
+        return @()
+    }
+    
+    # Get all template files
+    $templateFiles = Get-ChildItem -Path $script:BuildTemplatesPath -Filter "*.json"
+    $templates = @()
+    
+    foreach ($file in $templateFiles) {
+        try {
+            $template = Get-Content -Path $file.FullName -Raw | ConvertFrom-Json
+            
+            # Create a custom object with template information
+            $templateObj = [PSCustomObject]@{
+                Name = $template.name
+                Description = $template.description
+                Repository = $template.repository
+                BuildScript = $template.buildScript
+                BuildFunction = $template.buildFunction
+            }
+            
+            # Add build command if requested
+            if ($IncludeBuildCommand) {
+                $buildCommand = "Invoke-TemplateBuild -Software '$($template.name)'"
+                
+                # Add -UseDefaults flag if default configuration exists
+                if ($template.defaultConfiguration -and $template.defaultConfiguration.PSObject.Properties.Count -gt 0) {
+                    $buildCommand += " -UseDefaults"
+                    
+                    # Add custom configuration example
+                    $configExample = "@{ "
+                    $i = 0
+                    foreach ($prop in $template.defaultConfiguration.PSObject.Properties) {
+                        $configExample += if ($i -eq 0) { "" } else { "; " }
+                        
+                        # Format the value based on its type
+                        $value = switch ($prop.Value) {
+                            { $_ -is [bool] } { "`$$_" }
+                            { $_ -is [int] } { "$_" }
+                            default { "'$_'" }
+                        }
+                        
+                        $configExample += "$($prop.Name) = $value"
+                        $i++
+                    }
+                    $configExample += "}"
+                    
+                    $buildCommand += "`n# Or with custom configuration:`nInvoke-TemplateBuild -Software '$($template.name)' -Configuration $configExample"
+                }
+                
+                $templateObj | Add-Member -MemberType NoteProperty -Name "BuildCommand" -Value $buildCommand
+            }
+            
+            $templates += $templateObj
+        }
+        catch {
+            Write-Warning "Failed to parse template $($file.Name): $_"
+        }
+    }
+    
+    return $templates
 }
 
 function Invoke-TemplateBuild {
@@ -589,6 +687,48 @@ function Get-RepositoryHash {
     }
 }
 
+function Update-BuildTemplateSchema {
+    [CmdletBinding(SupportsShouldProcess)]
+    param()
+    
+    # Ensure templates directory exists
+    if (!(Test-Path $script:BuildTemplatesPath)) {
+        Write-Warning "Templates directory not found at $script:BuildTemplatesPath"
+        return
+    }
+    
+    # Get all template files
+    $templateFiles = Get-ChildItem -Path $script:BuildTemplatesPath -Filter "*.json"
+    
+    foreach ($file in $templateFiles) {
+        try {
+            $template = Get-Content -Path $file.FullName -Raw | ConvertFrom-Json
+            $modified = $false
+            
+            # Check if the build function follows the new naming schema
+            if ($template.buildFunction -and -not $template.buildFunction.StartsWith("sTBuild-")) {
+                $oldFunctionName = $template.buildFunction
+                $newFunctionName = "sTBuild-" + $oldFunctionName.Replace("Build-", "")
+                
+                if ($PSCmdlet.ShouldProcess($file.Name, "Update build function from '$oldFunctionName' to '$newFunctionName'")) {
+                    $template.buildFunction = $newFunctionName
+                    $modified = $true
+                    
+                    Write-Host "Updated $($file.Name) - Function: $oldFunctionName -> $newFunctionName"
+                }
+            }
+            
+            # Save changes if modified
+            if ($modified) {
+                ConvertTo-Json $template -Depth 10 | Set-Content $file.FullName
+            }
+        }
+        catch {
+            Write-Warning "Failed to process template $($file.Name): $_"
+        }
+    }
+}
+
 # Initialize the build environment when the module is loaded
 Initialize-BuildEnvironment
 
@@ -601,5 +741,7 @@ Export-ModuleMember -Function @(
     'Update-BinarySymlinks',
     'Register-BuildTemplate',
     'Get-BuildTemplate',
-    'Invoke-TemplateBuild'
+    'Get-BuildTemplates',
+    'Invoke-TemplateBuild',
+    'Update-BuildTemplateSchema'
 )

@@ -1,8 +1,14 @@
+# Platform detection
+$script:IsWindows = $PSVersionTable.PSEdition -eq "Desktop" -or 
+                   ($PSVersionTable.PSVersion.Major -ge 6 -and $IsWindows)
+$script:IsLinux = $PSVersionTable.PSVersion.Major -ge 6 -and $IsLinux
+$script:IsMacOS = $PSVersionTable.PSVersion.Major -ge 6 -and $IsMacOS
+
 # Create an empty array to collect function names
 $functionsToExport = @()
 
 # First, import any supporting modules
-$moduleFiles = Get-ChildItem -Path "$PSScriptRoot\modules" -Filter "*.psm1" -ErrorAction SilentlyContinue
+$moduleFiles = Get-ChildItem -Path (Join-Path $PSScriptRoot "modules") -Filter "*.psm1" -ErrorAction SilentlyContinue
 foreach ($module in $moduleFiles) {
     Write-Verbose "Importing module from $($module.FullName)"
     Import-Module $module.FullName -Force
@@ -15,7 +21,7 @@ foreach ($module in $moduleFiles) {
 }
 
 # Get all PS1 files in the Scripts folder
-$scriptFiles = Get-ChildItem -Path "$PSScriptRoot\scripts" -Filter "*.ps1" -Recurse
+$scriptFiles = Get-ChildItem -Path (Join-Path $PSScriptRoot "scripts") -Filter "*.ps1" -Recurse
 
 # Source each PS1 file and track functions
 foreach ($script in $scriptFiles) {

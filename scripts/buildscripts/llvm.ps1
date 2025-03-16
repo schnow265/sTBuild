@@ -1,3 +1,11 @@
+# Platform detection
+$script:IsWindows = $PSVersionTable.PSEdition -eq "Desktop" -or 
+                   ($PSVersionTable.PSVersion.Major -ge 6 -and $IsWindows)
+$script:IsLinux = $PSVersionTable.PSVersion.Major -ge 6 -and $IsLinux
+$script:IsMacOS = $PSVersionTable.PSVersion.Major -ge 6 -and $IsMacOS
+
+$script:HomeDir = if ($script:IsWindows) { $env:USERPROFILE } else { $env:HOME }
+
 function _Get-LLVMCMakeCommand {
     [CmdletBinding()]
     param(
@@ -69,6 +77,13 @@ function _Get-LLVMCMakeCommand {
         [bool]$UseNewPassManager
     )
 
+    # Platform-specific compiler flags
+    $platformCompilerFlags = if ($script:IsWindows) {
+        $CompilerArgs  # Windows uses /O2, etc.
+    } else {
+        "-O2"  # Linux/macOS uses -O2, etc.
+    }
+
     $cmakeCommand = @(
         "cmake -S llvm-project\llvm -B build -G ""Ninja"""
         "-DCMAKE_BUILD_TYPE=$BuildType"
@@ -76,10 +91,18 @@ function _Get-LLVMCMakeCommand {
         "-DLLVM_ENABLE_PROJECTS=""$LLvmProjects"""
         "-DLLVM_ENABLE_RUNTIMES=""$llvmRuntimes"""
         "-DLLVM_TARGETS_TO_BUILD=""$llvmTargets"""
-        "-DCMAKE_CXX_FLAGS=""$CompilerArgs"""
-        "-DCMAKE_C_FLAGS=""$CompilerArgs"""
-        "-DBUILD_SHARED_LIBS=OFF"
     )
+
+    # Add platform-specific compiler flags
+    if ($script:IsWindows) {
+        $cmakeCommand += "-DCMAKE_CXX_FLAGS=""$platformCompilerFlags"""
+        $cmakeCommand += "-DCMAKE_C_FLAGS=""$platformCompilerFlags"""
+    } else {
+        $cmakeCommand += "-DCMAKE_CXX_FLAGS=""$platformCompilerFlags"""
+        $cmakeCommand += "-DCMAKE_C_FLAGS=""$platformCompilerFlags"""
+    }
+
+    $cmakeCommand += "-DBUILD_SHARED_LIBS=OFF"
 
     if ($AsmFlags) { $cmakeCommand += "-DCMAKE_ASM_FLAGS=""$AsmFlags""" }
     if ($LinkerFlags) { 
@@ -161,12 +184,12 @@ function _Get-LLVMCMakeCommand {
     return $cmakeCommand -join ' `' + "`n    "
 }
 
-function Build-LLVM {
+function sTBuild-LLVM {
     [CmdletBinding()]
     param (
         # Basic configuration
         [Parameter(HelpMessage="Directory to install LLVM")]
-        [string]$InstallDir = "$env:USERPROFILE\sTBuild\llvm\temp",
+        [string]$InstallDir = $(Join-Path $script:HomeDir "sTBuild\llvm\temp"),
         
         [Parameter(HelpMessage="URL of the LLVM Git repository")]
         [string]$LLVMRemote = "https://github.com/llvm/llvm-project.git",
@@ -185,7 +208,7 @@ function Build-LLVM {
 
         # Compiler options
         [Parameter(HelpMessage="Compiler flags to use during build")]
-        [string]$CompilerArgs = "/O2",
+        [string]$CompilerArgs = $(if ($script:IsWindows) { "/O2" } else { "-O2" }),
         
         [Parameter(HelpMessage="Number of parallel compilation jobs")]
         [int]$ParallelCompileJobs = $env:NUMBER_OF_PROCESSORS,
@@ -483,9 +506,17 @@ function Build-LLVM {
         Write-Host -ForegroundColor Green "In progress build detected. Skipping codebase update & clean rebuild."
     }
 
-    ninja -C .\build\ install
+    # Cross-platform build command
+    if ($script:IsWindows) {
+        ninja -C .\build\ install
+    } else {
+        ninja -C ./build/ install
+    }
 
     Remove-Item -Force "hash.lock"
 
     Write-Output "$newHash" > "$InstallDir\git-hash.txt"
 }
+
+# Create an alias for backward compatibility
+New-Alias -Name Build-LLVM -Value sTBuild-LLVM
