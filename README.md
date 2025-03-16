@@ -1,3 +1,5 @@
+![s^{t}build](./assets/stbuild.png)
+
 # sTBuild PowerShell Module
 
 A comprehensive PowerShell module for building and managing software development tools and environments.
