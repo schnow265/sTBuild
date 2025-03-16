@@ -1,9 +1,8 @@
-mode: Mainline
+mode: ContinuousDelivery
 major-version-bump-message: '\+semver:\s?(breaking|major)'
 minor-version-bump-message: '\+semver:\s?(feature|minor)'
 patch-version-bump-message: '\+semver:\s?(fix|patch)'
-no-bump-message: '\+semver:\s?(none|skip)'
-
+increment: Patch
 branches:
   main:
     regex: ^master$|^main$
@@ -11,39 +10,22 @@ branches:
     increment: Patch
     prevent-increment-of-merged-branch-version: true
     track-merge-target: false
-    tracks-release-branches: false
-    is-release-branch: true
-  
+  feature:
+    regex: ^features?[/-]
+    tag: 'feature'
+    increment: Inherit
+  release:
+    regex: ^releases?[/-]
+    tag: 'rc'
+    increment: None
+  hotfix:
+    regex: ^hotfix(es)?[/-]
+    tag: 'fix'
+    increment: Patch
   develop:
     regex: ^dev(elop)?(ment)?$
-    tag: beta
+    tag: 'alpha'
     increment: Minor
-    prevent-increment-of-merged-branch-version: false
-    track-merge-target: true
-    tracks-release-branches: true
-    is-release-branch: false
-  
-  feature:
-    regex: ^feature[/-]
-    tag: alpha.{BranchName}
-    increment: Inherit
-    prevent-increment-of-merged-branch-version: false
-    track-merge-target: false
-  
-  hotfix:
-    regex: ^hotfix[/-]
-    tag: rc
-    increment: Patch
-    prevent-increment-of-merged-branch-version: false
-    track-merge-target: false
-  
-  pull-request:
-    regex: ^(pull|pr)[/-]
-    tag: pr
-    increment: Inherit
-    prevent-increment-of-merged-branch-version: false
-    tag-number-pattern: '[/-](?<number>\d+)[-/]'
-
 ignore:
   sha: []
 merge-message-formats: {}
