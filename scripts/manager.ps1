@@ -115,7 +115,7 @@ function CreateDefaultTemplates {
 function Import-SQLiteModule {
     # Check if SQLite module is installed
     if (!(Get-Module -ListAvailable -Name PSSQLite)) {
-        Write-Host "Installing PSSQLite module..."
+        Write-Host -ForegroundColor Cyan "Installing PSSQLite module..."
         Install-Module PSSQLite -Scope CurrentUser -Force
     }
     
@@ -145,7 +145,7 @@ CREATE TABLE IF NOT EXISTS Builds (
 
     Invoke-SqliteQuery -DataSource $script:DatabasePath -Query $createTableQuery
     
-    Write-Host "Build database initialized at $script:DatabasePath"
+    Write-Host -ForegroundColor Green "Build database initialized at $script:DatabasePath"
     return $script:DatabasePath
 }
 
@@ -387,7 +387,7 @@ function Get-BuildTemplate {
         return $template
     }
     catch {
-        Write-Error "Failed to parse template for $Software: $_"
+        Write-Error "Failed to parse template for $($Software): $_"
         return $null
     }
 }
