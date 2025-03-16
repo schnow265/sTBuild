@@ -19,11 +19,14 @@ $script:PathSeparator = if ($script:IsWindows) { "\" } else { "/" }
 # System information
 $script:NumProcessors = if ($script:IsWindows) { 
     [int]$env:NUMBER_OF_PROCESSORS 
-} elseif ($script:IsLinux -and (Get-Command nproc -ErrorAction SilentlyContinue)) {
+}
+elseif ($script:IsLinux -and (Get-Command nproc -ErrorAction SilentlyContinue)) {
     [int](nproc)
-} elseif ($script:IsMacOS -and (Get-Command sysctl -ErrorAction SilentlyContinue)) {
+}
+elseif ($script:IsMacOS -and (Get-Command sysctl -ErrorAction SilentlyContinue)) {
     [int](sysctl -n hw.ncpu)
-} else {
+}
+else {
     4 # Default to 4 cores if we can't determine
 }
 
@@ -39,14 +42,14 @@ function Get-PlatformInfo {
     param()
 
     $platformInfo = [PSCustomObject]@{
-        IsWindows = $script:IsWindows
-        IsLinux = $script:IsLinux
-        IsMacOS = $script:IsMacOS
-        HomeDirectory = $script:HomeDir
-        PathSeparator = $script:PathSeparator
+        IsWindows          = $script:IsWindows
+        IsLinux            = $script:IsLinux
+        IsMacOS            = $script:IsMacOS
+        HomeDirectory      = $script:HomeDir
+        PathSeparator      = $script:PathSeparator
         NumberOfProcessors = $script:NumProcessors
-        PowerShellVersion = $PSVersionTable.PSVersion.ToString()
-        PowerShellEdition = $PSVersionTable.PSEdition
+        PowerShellVersion  = $PSVersionTable.PSVersion.ToString()
+        PowerShellEdition  = $PSVersionTable.PSEdition
     }
 
     # Add OS-specific information
@@ -102,14 +105,15 @@ function Get-CrossPlatformPath {
     #>
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory=$true, ValueFromPipeline=$true)]
+        [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
         [string]$Path
     )
     
     process {
         if ($script:IsWindows) {
             return $Path.Replace('/', '\')
-        } else {
+        }
+        else {
             return $Path.Replace('\', '/')
         }
     }
@@ -130,10 +134,10 @@ function New-CrossPlatformSymlink {
     #>
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [string]$Path,
         
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [string]$Target,
         
         [Parameter()]
