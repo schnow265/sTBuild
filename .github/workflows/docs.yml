@@ -1,0 +1,53 @@
+name: Documentation
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - '**.ps1'
+      - '**.psm1'
+      - '**.psd1'
+  workflow_dispatch:
+
+jobs:
+  build-docs:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      
+      - name: Import Module and Generate Documentation
+        shell: pwsh
+        run: |
+          $env:PSModulePath = $env:PSModulePath + ";$env:GITHUB_WORKSPACE"
+          Import-Module -Name sTBuild -Force
+          Update-STBuildDocumentation
+      
+      - name: Upload Documentation
+        uses: actions/upload-artifact@v2
+        with:
+          name: documentation
+          path: docs/
+      
+      - name: Check if gh-pages branch exists
+        id: check-branch
+        continue-on-error: true
+        run: |
+          git ls-remote --heads origin gh-pages | grep -q 'gh-pages'
+          echo "::set-output name=exists::$?"
+      
+      - name: Setup gh-pages branch
+        if: steps.check-branch.outputs.exists != 0
+        run: |
+          git checkout --orphan gh-pages
+          git rm -rf .
+          git commit --allow-empty -m "Initial commit on gh-pages branch"
+          git push origin gh-pages
+      
+      - name: Deploy to GitHub Pages
+        uses: JamesIves/github-pages-deploy-action@4.1.5
+        with:
+          branch: gh-pages
+          folder: docs/
+          clean: true

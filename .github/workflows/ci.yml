@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Test on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Install Pester
+        shell: pwsh
+        run: |
+          Install-Module -Name Pester -Force -SkipPublisherCheck
+          Install-Module -Name PSScriptAnalyzer -Force -SkipPublisherCheck
+      
+      - name: Run PSScriptAnalyzer
+        shell: pwsh
+        run: |
+          $results = Invoke-ScriptAnalyzer -Path . -Recurse
+          $errorCount = ($results | Where-Object Severity -eq 'Error').Count
+          $warningCount = ($results | Where-Object Severity -eq 'Warning').Count
+          
+          if ($errorCount -gt 0) {
+            Write-Error "Found $errorCount errors and $warningCount warnings in code analysis"
+            $results | Format-Table -AutoSize
+            exit 1
+          } else {
+            Write-Host "Code analysis completed with $warningCount warnings"
+            $results | Format-Table -AutoSize
+          }
+      
+      - name: Run Pester Tests
+        shell: pwsh
+        run: |
+          $testResults = Invoke-Pester -Path ./tests -PassThru
+          if ($testResults.FailedCount -gt 0) {
+            Write-Error "Failed $($testResults.FailedCount) tests"
+            exit 1
+          }
