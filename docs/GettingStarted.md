@@ -66,5 +66,5 @@ $env:USERPROFILE\sTBuild\
 
 ## Next Steps
 
-- Review the [Function Reference](function-index.md) for detailed command information
+- Review the [Function Reference](./commands/index.md) for detailed command information
 - Check out the [Example Scripts](../examples) for more usage patterns

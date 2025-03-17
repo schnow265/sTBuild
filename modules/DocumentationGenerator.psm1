@@ -36,8 +36,8 @@ function Get-STBuildHelp {
         [switch]$ListTopics
     )
     
-    $moduleRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
-    $readmePath = Join-Path $moduleRoot "docs\README.md"
+    $moduleRoot = Split-Path -Parent $PSScriptRoot
+    $readmePath = Join-Path $moduleRoot "README.md"
     
     if ($ListTopics) {
         # Get all exported functions
@@ -52,11 +52,15 @@ function Get-STBuildHelp {
     }
     
     if ([string]::IsNullOrWhiteSpace($Topic)) {
+        Write-Verbose "No topic specified, displaying general help."
+        Write-Verbose "Readme path: $readmePath"
         # Display general module help
         if (Test-Path $readmePath) {
+            Write-Verbose "Readme file found, displaying content."
             $readmeContent = Get-Content $readmePath -Raw
             Write-Host $readmeContent
         } else {
+            Write-Verbose "Readme file not found, displaying fallback content."
             Write-Host "sTBuild Module" -ForegroundColor Cyan
             Write-Host "A PowerShell module for building and managing software development tools."
             Write-Host "`nUse Get-STBuildHelp -ListTopics to see available topics."
@@ -85,24 +89,27 @@ function Update-STBuildDocumentation {
     #>
     [CmdletBinding()]
     param(
-        [string]$OutputPath = "$PSScriptRoot\..\docs"
+        [string]$OutputPath = "$PSScriptRoot\..\docs\commands"
     )
     
     # Ensure output directory exists
     if (!(Test-Path $OutputPath)) {
+        Write-Verbose "Output directory not found, creating: $OutputPath"
         New-Item -ItemType Directory -Path $OutputPath -Force | Out-Null
     }
     
     # Get all exported functions
     $exportedFunctions = Get-Command -Module sTBuild
+    Write-Verbose "Found $($exportedFunctions.Count) exported functions."
     
     # Create index file
-    $indexPath = Join-Path $OutputPath "function-index.md"
+    $indexPath = Join-Path $OutputPath "index.md"
     "# sTBuild Function Reference`n" | Set-Content $indexPath
     "| Function | Synopsis |" | Add-Content $indexPath
     "|----------|----------|" | Add-Content $indexPath
     
     foreach ($function in $exportedFunctions) {
+        Write-Verbose "Processing function: $($function.Name)"
         $help = Get-Help $function.Name
         $synopsis = $help.Synopsis.Trim()
         
@@ -114,20 +121,24 @@ function Update-STBuildDocumentation {
         "# $($function.Name)`n" | Set-Content $functionPath
         
         if ($help.Synopsis) {
+            Write-Verbose "Adding synopsis to Function $($function.Name)"
             "## Synopsis`n" | Add-Content $functionPath
             $help.Synopsis | Add-Content $functionPath
             "`n" | Add-Content $functionPath
         }
         
         if ($help.Description) {
+            Write-Verbose "Adding description to Function $($function.Name)"
             "## Description`n" | Add-Content $functionPath
             $help.Description.Text | Add-Content $functionPath
             "`n" | Add-Content $functionPath
         }
         
         if ($help.Parameters.Parameter) {
+            Write-Verbose "Adding parameters to Function $($function.Name)"
             "## Parameters`n" | Add-Content $functionPath
             foreach ($param in $help.Parameters.Parameter) {
+                Write-Verbose "Processing Parameter $($param.Name) for function $($function.Name)"
                 "### -$($param.Name)`n" | Add-Content $functionPath
                 $param.Description.Text | Add-Content $functionPath
                 
@@ -150,6 +161,7 @@ function Update-STBuildDocumentation {
         }
         
         if ($help.Examples.Example) {
+            Write-Verbose "Adding examples for Function $($function.Name)"
             "## Examples" | Add-Content $functionPath
             "" | Add-Content $functionPath
             

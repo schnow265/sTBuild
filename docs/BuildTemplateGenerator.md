@@ -94,6 +94,6 @@ When using the `-Interactive` switch, you'll be prompted for:
 
 ## See Also
 
-- [Get-BuildTemplate](function-index.md) - View existing build templates
-- [Invoke-TemplateBuild](function-index.md) - Build software using templates
+- [Get-BuildTemplate](./commands/Get-BuildTemplate.md) - View existing build templates
+- [Invoke-TemplateBuild](./commands/Invoke-TemplateBuild.md) - Build software using templates
 - [Example Build Templates](../examples/template-usage.ps1)

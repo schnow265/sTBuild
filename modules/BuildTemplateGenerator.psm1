@@ -41,13 +41,13 @@ function New-BuildTemplate {
             $value = Read-Host "Enter value for $key"
             $defaultConfig[$key] = $value
             
-            $addMore = (Read-Host "Add another configuration? (y/n)") -eq "y"
+            $addMore = (Read-Host "Add another configuration? (y/N)") -eq "y"
         }
         
         $schema = @{}
         Write-Host "Now define configuration schema (optional)"
         
-        $addMore = (Read-Host "Add configuration schema? (y/n)") -eq "y"
+        $addMore = (Read-Host "Add configuration schema? (y/N)") -eq "y"
         while ($addMore) {
             $key = Read-Host "Enter schema key (leave empty to finish)"
             if ([string]::IsNullOrWhiteSpace($key)) {
@@ -63,7 +63,7 @@ function New-BuildTemplate {
             }
             
             if ($type -eq "string") {
-                $addEnum = (Read-Host "Add enum values? (y/n)") -eq "y"
+                $addEnum = (Read-Host "Add enum values? (y/N)") -eq "y"
                 if ($addEnum) {
                     $enumValues = @()
                     $addMore2 = $true
@@ -80,7 +80,7 @@ function New-BuildTemplate {
             }
             
             $schema[$key] = $schemaEntry
-            $addMore = (Read-Host "Add another schema entry? (y/n)") -eq "y"
+            $addMore = (Read-Host "Add another schema entry? (y/N)") -eq "y"
         }
         
         $executablePatterns = @()
@@ -94,7 +94,7 @@ function New-BuildTemplate {
             }
             $executablePatterns += $pattern
             
-            $addMore = (Read-Host "Add another pattern? (y/n)") -eq "y"
+            $addMore = (Read-Host "Add another pattern? (y/N)") -eq "y"
         }
         
         if ($executablePatterns.Count -eq 0) {

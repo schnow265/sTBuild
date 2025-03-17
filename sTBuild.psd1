@@ -12,7 +12,7 @@
     RootModule        = 'sTBuild.psm1'
 
     # Version number of this module.
-    ModuleVersion     = '1.0'
+    ModuleVersion     = '0.1'
 
     # Supported PSEditions
     # CompatiblePSEditions = @()
@@ -51,7 +51,7 @@
     # ProcessorArchitecture = ''
 
     # Modules that must be imported into the global environment prior to importing this module
-    # RequiredModules = @()
+    # RequiredModules = 'PSSQLite'
 
     # Assemblies that must be loaded prior to importing this module
     # RequiredAssemblies = @()
@@ -84,7 +84,7 @@
     # DscResourcesToExport = @()
 
     # List of all modules packaged with this module
-    # ModuleList = @()
+    # ModuleList = @('PSSQLite')
 
     # List of all files packaged with this module
     # FileList = @()
